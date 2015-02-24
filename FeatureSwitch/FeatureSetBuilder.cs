@@ -8,12 +8,10 @@ namespace FeatureSwitch
 {
     public class FeatureSetBuilder
     {
-        private readonly IDependencyContainer container;
-        private readonly Dictionary<Type, Type> defaultImplementations = new Dictionary<Type, Type>
+        private readonly IDependencyContainer _container;
+        private readonly Dictionary<Type, Type> _defaultImplementations = new Dictionary<Type, Type>
         {
             { typeof(AppSettings), typeof(AppSettingsStrategyImpl) },
-            { typeof(AlwaysTrue), typeof(AlwaysTrueStrategyImpl) },
-            { typeof(AlwaysFalse), typeof(AlwaysFalseStrategyImpl) },
             { typeof(HttpSession), typeof(HttpSessionStrategyImpl) },
             { typeof(QueryString), typeof(QueryStringStrategyImpl) },
         };
@@ -25,7 +23,7 @@ namespace FeatureSwitch
                 container = new DefaultDependencyContainer();
             }
 
-            this.container = container;
+            _container = container;
         }
         
         public FeatureSetContainer Build(Action<FeatureContext> action = null)
@@ -48,14 +46,14 @@ namespace FeatureSwitch
                 var strategyType = readerKeyValuePair.Key;
                 var strategyReaderType = readerKeyValuePair.Value;
 
-                if (this.defaultImplementations.Keys.Contains(strategyType))
+                if (_defaultImplementations.Keys.Contains(strategyType))
                 {
                     // swap already registered strategy
-                    this.defaultImplementations[strategyType] = strategyReaderType;
+                    _defaultImplementations[strategyType] = strategyReaderType;
                 }
                 else
                 {
-                    this.defaultImplementations.Add(strategyType, strategyReaderType);
+                    _defaultImplementations.Add(strategyType, strategyReaderType);
                 }
 
                 // TODO: review this
@@ -63,7 +61,7 @@ namespace FeatureSwitch
                 {
                     // we can create implementation only for concrete types
                     // if registered reader is interface - most probably it's registered in via IoC registry already
-                    this.container.RegisterType(strategyReaderType, strategyReaderType);
+                    _container.RegisterType(strategyReaderType, strategyReaderType);
                 }
             }
         }
@@ -73,27 +71,45 @@ namespace FeatureSwitch
             var context = new FeatureContext();
             if (action != null)
             {
-                // if configuration expression is present - call that one
+                // if configuration expression is present - call it
+                // Need to set AutoDiscoverFeatures to false to avoid semantic breaking change
+                // as the provision of an action previously precluded feature discovery
+                // The action implementer can now decide if the want to set it back to true
+                context.AutoDiscoverFeatures = false;
                 action(context);
             }
-            else
+            
+            if (context.AutoDiscoverFeatures)
             {
-                // otherwise we are going to scan for all features exposed and add to the context
+                // Scan for all features exposed and add to the context
                 DiscoverFeatures(context);
             }
 
             return context;
         }
 
-        internal IStrategy GetStrategyImplementation(Type strategyType)
+        internal IStrategy GetStrategyImplementation(FeatureStrategyAttribute strategy)
         {
             Type reader;
-            return this.defaultImplementations.TryGetValue(strategyType, out reader) ? (IStrategy)this.container.Resolve(reader) : new EmptyStrategy();
+
+            // try to find strategy in default implementation map
+            if(_defaultImplementations.TryGetValue(strategy.GetType(), out reader))
+            {
+                return (IStrategy)_container.Resolve(reader);
+            }
+
+            // try to check strategy itself - maybe default implementation is declared
+            if (strategy.DefaultImplementation != null)
+            {
+                return (IStrategy)_container.Resolve(strategy.DefaultImplementation);
+            }
+
+            return new EmptyStrategy();
         }
 
-        internal IStrategy GetStrategyImplementation<T>()
+        internal IStrategy GetStrategyImplementation<T>() where T : FeatureStrategyAttribute, new()
         {
-            return GetStrategyImplementation(typeof(T));
+            return GetStrategyImplementation(new T());
         }
 
         private void BuildFeatureSet(FeatureContext context)
@@ -116,21 +132,24 @@ namespace FeatureSwitch
                 // test if there are any strategy with equal order
                 if (strategies.GroupBy(a => a.Order).Any(k => k.Count() > 1))
                 {
-                    feature.ChangeIsProperlyConfiguredState(false);
-                    context.AddConfigurationError(feature, string.Format("Feature {0} has strategies with the same order.", keyValuePair.Key));
+                    feature.MarkAsNotConfigured();
+                    context.AddConfigurationError(feature, string.Format("Feature {0} has some strategies with the same order.", keyValuePair.Key));
                     continue;
                 }
 
-                var strategyImplementations = strategies.Select(s => Tuple.Create(s, GetStrategyImplementation(s.GetType()))).ToList();
+                var strategyImplementations = strategies.Select(s => Tuple.Create(s, GetStrategyImplementation(s))).ToList();
                 keyValuePair.Value.Item2.Clear();
                 strategyImplementations.ForEach(i =>
                                                 {
-                                                    i.Item2.Initialize(i.Item1.BuildConfigurationContext());
+                                                    i.Item2.Initialize(i.Item1.BuildConfigurationContext(feature, i.Item2));
                                                     keyValuePair.Value.Item2.Add(i.Item2);
                                                 });
 
                 // do we have any writer in da house?
-                feature.ChangeModifiableState(strategyImplementations.Any(s => s.Item2 is IStrategyStorageWriter));
+                if (strategyImplementations.Any(s => s.Item2 is IStrategyStorageWriter))
+                {
+                    feature.MarkAsModifiable();
+                }
             }
         }
 

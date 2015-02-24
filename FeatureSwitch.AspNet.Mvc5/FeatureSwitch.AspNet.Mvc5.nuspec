@@ -10,7 +10,10 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>$description$</description>
     <releaseNotes>FeatureSwitch integration library for Asp.Net MVC v5</releaseNotes>
-    <copyright>Copyright 2014</copyright>
-    <tags>FeatureToggle Toggle Feature AspNet Mvc5</tags>
+    <copyright>$copyright$</copyright>
+    <tags>FeatureSwitch Switch Feature Toggle Toggling AspNet Mvc Mvc5</tags>
+    <dependencies>
+      <dependency id="WebActivatorEx" version="2.0.6" />
+    </dependencies>
   </metadata>
 </package>

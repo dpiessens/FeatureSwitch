@@ -8,18 +8,18 @@ namespace FeatureSwitch
 {
     public class FeatureSetContainer
     {
-        private readonly Dictionary<string, Tuple<BaseFeature, IList<IStrategy>>> features = new Dictionary<string, Tuple<BaseFeature, IList<IStrategy>>>();
+        private readonly Dictionary<string, Tuple<BaseFeature, IList<IStrategy>>> _features = new Dictionary<string, Tuple<BaseFeature, IList<IStrategy>>>();
 
         public FeatureSetContainer()
         {
-            this.ConfigurationErrors = new Dictionary<string, string>();
+            ConfigurationErrors = new Dictionary<string, string>();
         }
 
         public IDictionary<string, Tuple<BaseFeature, IList<IStrategy>>> Features
         {
             get
             {
-                return this.features;
+                return _features;
             }
         }
 
@@ -35,7 +35,7 @@ namespace FeatureSwitch
             var key = featureType.FullName;
 
             // add only if does not exist
-            if (this.features.ContainsKey(key))
+            if (_features.ContainsKey(key))
             {
                 return;
             }
@@ -43,12 +43,13 @@ namespace FeatureSwitch
             var featureInstance = (BaseFeature)Activator.CreateInstance(featureType);
             featureInstance.Name = featureType.Name;
 
-            this.features.Add(key, Tuple.Create<BaseFeature, IList<IStrategy>>(featureInstance, new List<IStrategy>()));
+            _features.Add(key, Tuple.Create<BaseFeature, IList<IStrategy>>(featureInstance, new List<IStrategy>()));
         }
 
         public BaseFeature GetFeature<T>(bool throwNotFound = true) where T : BaseFeature
         {
-            return GetFeature(typeof(T), throwNotFound).Item1;
+            var featureWithStrategy = GetFeature(typeof(T), throwNotFound);
+            return featureWithStrategy != null ? featureWithStrategy.Item1 : null;
         }
 
         public Tuple<BaseFeature, IList<IStrategy>> GetFeature(Type feature, bool throwNotFound = true)
@@ -69,9 +70,9 @@ namespace FeatureSwitch
 
         public bool IsEnabled(Type feature)
         {
-            if (this.ConfigurationErrors.Keys.Contains(feature.FullName, StringComparer.InvariantCultureIgnoreCase))
+            if (ConfigurationErrors.Keys.Contains(feature.FullName, StringComparer.InvariantCultureIgnoreCase))
             {
-                throw new ConfigurationErrorsException(this.ConfigurationErrors[feature.FullName]);
+                throw new ConfigurationErrorsException(ConfigurationErrors[feature.FullName]);
             }
 
             var f = GetFeature(feature, false);
@@ -82,13 +83,13 @@ namespace FeatureSwitch
             }
 
             var states = f.Item2.Select(s =>
-                                            {
-                                                // test if strategy implementation is readable
-                                                var reader = s as IStrategyStorageReader;
-                                                return reader != null && reader.Read();
-                                            });
+            {
+                // test if strategy implementation is readable
+                var reader = s as IStrategyStorageReader;
+                return reader != null && reader.Read();
+            }).ToList();
 
-            // feature is enabled if any of strategies is telling truth
+            // feature is enabled if any of strategies is telling the truth
             return states.Any(b => b);
         }
 
@@ -99,9 +100,9 @@ namespace FeatureSwitch
 
         public void ValidateConfiguration()
         {
-            if (this.ConfigurationErrors.Any())
+            if (ConfigurationErrors.Any())
             {
-                throw new ConfigurationErrorsException(string.Join("; ", this.ConfigurationErrors));
+                throw new ConfigurationErrorsException(string.Join("; ", ConfigurationErrors));
             }
         }
 
@@ -111,7 +112,7 @@ namespace FeatureSwitch
 
             if (item == null)
             {
-                throw new KeyNotFoundException("Feature of type" + featureName + " not found");
+                throw new KeyNotFoundException("Feature of type " + featureName + " not found");
             }
 
             // find 1st writer strategy
@@ -136,9 +137,23 @@ namespace FeatureSwitch
             ChangeEnabledState(typeof(T).FullName, state);
         }
 
-        private Tuple<BaseFeature, IList<IStrategy>> GetFeatureWithStrategies(string featureName)
+        internal bool IsEnabled<T>(Type strategy) where T : BaseFeature
         {
-            var featureEntry = this.features.FirstOrDefault(f => f.Key != null && f.Key == featureName);
+            var f = GetFeature(typeof(T), false);
+            var matchStrategy = f.Item2.FirstOrDefault(s => s.GetType() == strategy);
+
+            return matchStrategy != null && ((IStrategyStorageReader)matchStrategy).Read();
+        }
+
+        internal bool IsStrategyEnabled(Type strategyType)
+        {
+            var allStrategies = Features.SelectMany(f => f.Value.Item2).Distinct();
+            return allStrategies.Any(strategyType.IsInstanceOfType);
+        }
+
+        internal Tuple<BaseFeature, IList<IStrategy>> GetFeatureWithStrategies(string featureName)
+        {
+            var featureEntry = _features.FirstOrDefault(f => f.Key != null && f.Key == featureName);
             return featureEntry.Key != null ? featureEntry.Value : null;
         }
     }

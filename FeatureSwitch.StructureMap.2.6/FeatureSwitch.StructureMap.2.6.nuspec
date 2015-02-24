@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>$id$</id>
+    <version>$version$</version>
+    <title>$title$</title>
+    <authors>$author$</authors>
+    <owners>$author$</owners>
+    <projectUrl>https://github.com/valdisiljuconoks/FeatureSwitch/wiki/Dependency-Injection-Container-Support</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>$description$</description>
+    <releaseNotes>FeatureSwitch helper library to integrate with StructureMap v2.6</releaseNotes>
+    <copyright>Copyright 2014</copyright>
+    <tags>FeatureToggle Toggle Feature StructureMap</tags>
+    <dependencies>
+      <dependency id="structuremap" version="[2.6, 3.0)" />
+    </dependencies>
+  </metadata>
+</package>

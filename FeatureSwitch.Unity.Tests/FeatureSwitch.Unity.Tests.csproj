@@ -74,6 +74,10 @@
       <Project>{bafa25ba-35d0-4c96-bc69-653dc2c4bb9d}</Project>
       <Name>FeatureSwitch.Unity</Name>
     </ProjectReference>
+    <ProjectReference Include="..\FeatureSwitch\FeatureSwitch.csproj">
+      <Project>{2647bfaf-c14f-42ab-ba25-35462c9e3251}</Project>
+      <Name>FeatureSwitch</Name>
+    </ProjectReference>
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">

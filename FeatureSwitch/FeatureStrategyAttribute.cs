@@ -1,4 +1,5 @@
 ﻿using System;
+using FeatureSwitch.Strategies;
 
 namespace FeatureSwitch
 {
@@ -7,16 +8,29 @@ namespace FeatureSwitch
     {
         protected FeatureStrategyAttribute()
         {
-            this.Order = 0;
+            Order = 0;
         }
 
         public int Order { get; set; }
 
         public string Key { get; set; }
 
-        public ConfigurationContext BuildConfigurationContext()
+        public virtual Type DefaultImplementation
         {
-            return new ConfigurationContext(this.Key);
+            get
+            {
+                return null;
+            }
+        }
+
+        public ConfigurationContext BuildConfigurationContext(BaseFeature feature, IStrategy strategy)
+        {
+            if (string.IsNullOrWhiteSpace(Key))
+            {
+                throw new ArgumentException("Missing 'Key' parameter for '" + strategy.GetType().Name + "' strategy for '" + feature.Name + "' feature");
+            }
+
+            return new ConfigurationContext(Key);
         }
     }
 }
