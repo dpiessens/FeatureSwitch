@@ -7,12 +7,7 @@ namespace FeatureSwitch.Unity
     {
         private readonly IUnityContainer unityContainer;
 
-<<<<<<< HEAD
-        public UnityDependencyContainer()
-            : this(new UnityContainer())
-=======
         public UnityDependencyContainer() : this(new UnityContainer())
->>>>>>> upstream/master
         {
         }
 
